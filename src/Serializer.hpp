@@ -84,6 +84,10 @@ public:
         return m_iodevice.data();
     }
 
+    const char* current(){
+		return m_iodevice.current();
+	}
+
 
     template<typename T>
 	void output_type(T& t);
@@ -135,6 +139,25 @@ inline void Serializer::output_type(std::string& in){
 
     in.insert(in.begin(), m_iodevice.current(), m_iodevice.current() + len); //输入到in中
 	m_iodevice.offset(len);
+}
+
+template<typename T>
+void Serializer::input_type(T t){
+    // int len = sizeof(t);
+    // char* d = reinterpret_cast<char*>(&t);  //取出长度
+    // m_iodevice.input(d,len);
+    // // byte_orser(d, len);
+    // m_iodevice.offset(len);
+    // // delete d;
+        
+    //求出放入缓存区数据的长度
+	int len = sizeof(T); 
+	char* d = new char[len];   
+	const char* p = reinterpret_cast<const char*>(&t);
+	memcpy(d, p, len); 
+	byte_orser(d, len); 
+	m_iodevice.input(d, len); //将d中的数据输入到字节流中
+	delete [] d;
 }
 
 template<>

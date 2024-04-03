@@ -53,6 +53,14 @@ public:
         void set_code(code_type code) { code_ = code; }    
         void set_msg(msg_type msg) { msg_ = msg; }
 
+		friend Serializer& operator >> (Serializer& in, value_t<T>& d) { //定义友元函数    //XXX：这两个友元函数好像并不会被调用啊，会被调用，这个bug找了很久！！！
+            in >> d.code_ >> d.msg_; 
+			if (d.code_ == 0) {
+				in >> d.val_;
+			}
+			return in;
+        }
+
 
 	private:
         code_type code_;  //这个是传输过程中的状态标识
@@ -76,13 +84,15 @@ public:
     //server
     template<typename F, typename S>
 	void bind(std::string name, F func, S* s); //类成员函数
+	template<typename F, typename S>
+	void callproxy(F fun, S* s, Serializer* pr, const char* data, int len); //类成员函数
 
     // client
     template<typename R, typename P1>
 	value_t<R> call(std::string name, P1); //一个参数
 
 private:
-
+	//server内部进行函数调用
     Serializer* call_(std::string name, const char* data, int len);
 
     template<typename R>
@@ -108,17 +118,16 @@ buttonrpc::~buttonrpc(){
 	m_context.close(); //关闭上下文
 }
 
-
-
-void buttonrpc::as_client( std::string ip, int port )
-{
-    m_role = RPC_CLIENT;
-    m_socket = new zmq::socket_t(m_context, ZMQ_REQ); //创建一个套接字 参数为上下文和套接字类型	 //ZMQ_REQ 用于请求-应答模式
-    std::ostringstream os;//创建一个字符串流
-    os << "tcp://" << ip << ":" << port;
-    m_socket->connect (os.str()); //连接到指定的地址
-    
+void buttonrpc::recv(zmq::message_t& data){
+	m_socket->recv(&data);
 }
+
+void buttonrpc::send(zmq::message_t& data )
+{
+	m_socket->send(data);  //发送数据
+}
+
+
 
 void buttonrpc::as_server( int port )
 {
@@ -127,6 +136,19 @@ void buttonrpc::as_server( int port )
 	std::ostringstream os;
 	os << "tcp://*:" << port;
 	m_socket->bind (os.str()); //绑定到指定的地址
+}
+
+template<typename F, typename S>
+inline void buttonrpc::bind(std::string name, F func, S* s) //类函数
+{
+	//m_handlers[name] = std::bind(&buttonrpc::callproxy<F, S>, this, func, s, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+	//它是一个函数适配器，接受一个可调用对象（callable object），生成一个新的可调用对象来“适应”原对象的参数列表。
+}
+
+template<typename F, typename S>
+inline void buttonrpc::callproxy(F fun, S * s, Serializer * pr, const char * data, int len)//代理类函数
+{
+	// callproxy_(fun, s, pr, data, len);
 }
 
 void buttonrpc::run()
@@ -140,29 +162,49 @@ void buttonrpc::run()
 		StreamBuffer iodev((char*)data.data(), data.size());//创建一个流缓冲区
 		Serializer ds(iodev); //创建一个序列化器
 
-		// std::string funname;
-		// ds >> funname; //读取函数名
-		// Serializer* r = call_(funname, ds.current(), ds.size()- funname.size()); //调用函数
+		std::string funname;
+		ds >> funname; //读取函数名，client传来的是两个string进行的序列化，第一个是函数名
+		Serializer* r = call_(funname, ds.current(), ds.size()- funname.size()); //调用函数
 
-		// zmq::message_t retmsg (r->size()); //创建一个消息
-		// memcpy (retmsg.data (), r->data(), r->size()); //拷贝数据，memcpy要指定拷贝多少字节
+		zmq::message_t retmsg (r->size()); //创建一个消息
+		memcpy (retmsg.data (), r->data(), r->size()); //拷贝数据，memcpy要指定拷贝多少字节
 
 
-		zmq::message_t retmsg (10); //创建一个消息
-		memcpy(retmsg.data(), "World", 5);
+		// zmq::message_t retmsg (10); //创建一个消息
+		// memcpy(retmsg.data(), "World", 5);
 
 		send(retmsg); //发送数据
 		// delete r;  //防止内存泄漏
 	}
 }
 
-void buttonrpc::recv(zmq::message_t& data){
-	m_socket->recv(&data);
+// 处理函数相关
+Serializer* buttonrpc::call_(std::string name, const char* data, int len)
+{
+    Serializer* ds = new Serializer(); //创建一个序列化器
+    if (m_handlers.find(name) == m_handlers.end()) { //如果没有找到函数
+		(*ds) << value_t<int>::code_type(RPC_ERR_FUNCTIION_NOT_BIND); //设置错误码
+		(*ds) << value_t<int>::msg_type("function not bind: " + name); //设置错误信息
+		//val_就没有写入了，因为出错了没有val_
+		return ds;
+	}
+
+    auto fun = m_handlers[name]; //获取函数
+    fun(ds, data, len);  //调用函数
+    ds->reset(); //重置序列号容器
+    return ds;
 }
 
-void buttonrpc::send(zmq::message_t& data )
+//server
+
+void buttonrpc::as_client( std::string ip, int port )
 {
-	m_socket->send(data);  //发送数据
+    m_role = RPC_CLIENT;
+    m_socket = new zmq::socket_t(m_context, ZMQ_REQ); //创建一个套接字 参数为上下文和套接字类型	 //ZMQ_REQ 用于请求-应答模式
+    std::ostringstream os;//创建一个字符串流
+    os << "tcp://" << ip << ":" << port;
+    m_socket->connect (os.str()); //连接到指定的地址
+    
 }
 
 inline void buttonrpc::set_timeout(uint32_t ms)
@@ -182,6 +224,7 @@ inline buttonrpc::value_t<R> buttonrpc::net_call(Serializer& ds)
 	if (m_error_code != RPC_ERR_RECV_TIMEOUT) {
 		send(request);
 	}
+	// send(request);
 	zmq::message_t reply;
 	recv(reply);
 	value_t<R> val;
@@ -200,8 +243,6 @@ inline buttonrpc::value_t<R> buttonrpc::net_call(Serializer& ds)
 	ds >> val;
 	return val;
 }
-
-
 
 template<typename R, typename P1>
 inline buttonrpc::value_t<R> buttonrpc::call(std::string name, P1 p1)
