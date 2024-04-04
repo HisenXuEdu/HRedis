@@ -9,7 +9,7 @@
 
 //模板的别名，需要一个外敷类
 // type_xx<int>::type a = 10;
-template <typename T>
+template <typename T>   //一个萃取机，用来萃取T的类型。
 struct type_xx {
     typedef T type;
 };
@@ -60,6 +60,11 @@ public:
 			}
 			return in;
         }
+		
+		friend Serializer& operator << (Serializer& out, value_t<T> d) {
+			out << d.code_ << d.msg_ << d.val_; //重载运算符<< 
+			return out;
+		}
 
 
 	private:
@@ -97,6 +102,17 @@ private:
 
     template<typename R>
 	value_t<R> net_call(Serializer& ds);
+
+	// PROXY CLASS MEMBER，function不能包装类成员变量或函数，需要配合Bind,传入函数地址和类对象地址
+    template<typename R, typename C, typename S, typename P1>
+	void callproxy_(R(C::* func)(P1), S* s, Serializer* pr, const char* data, int len) {
+		callproxy_(std::function<R(P1)>(std::bind(func, s, std::placeholders::_1)), pr, data, len);
+	}
+
+	// PORXY FUNCTIONAL
+    template<typename R, typename P1>
+	void callproxy_(std::function<R(P1)>, Serializer* pr, const char* data, int len); //实际的调用函数，前序的都是通过bind等操作把参数统一成相同数量的。
+
 
 private:
     std::map<std::string, std::function<void(Serializer*, const char*, int)>> m_handlers; //函数映射表
@@ -139,16 +155,40 @@ void buttonrpc::as_server( int port )
 }
 
 template<typename F, typename S>
-inline void buttonrpc::bind(std::string name, F func, S* s) //类函数
+inline void buttonrpc::bind(std::string name, F func, S* s) //类函数，注册类函数成为远程调用的函数
 {
-	//m_handlers[name] = std::bind(&buttonrpc::callproxy<F, S>, this, func, s, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-	//它是一个函数适配器，接受一个可调用对象（callable object），生成一个新的可调用对象来“适应”原对象的参数列表。
+	m_handlers[name] = std::bind(&buttonrpc::callproxy<F, S>, this, func, s, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+	//它是一个函数适配器，接受一个可调用对象（callable object），生成一个新的可调用对象来“适应”原对象的参数列表。因为是成员函数，所以要传递this指针
+	//这个函数变成了传递三个参数的函数接口placeholders
 }
 
 template<typename F, typename S>
 inline void buttonrpc::callproxy(F fun, S * s, Serializer * pr, const char * data, int len)//代理类函数
 {
-	// callproxy_(fun, s, pr, data, len);
+	callproxy_(fun, s, pr, data, len);
+}
+
+template<typename R, typename P1>
+void buttonrpc::callproxy_(std::function<R(P1)> func, Serializer* pr, const char* data, int len)
+{
+	/*
+    typename关键字用于指定一个依赖类型,依赖类型是指在模板参数中定义的类型，其具体类型直到模板实例化时才能确定。
+    ype_xx<R>::type是一个依赖类型，因为它依赖于模板参数R。在这种情况下，你需要使用typename关键字来告诉编译器type_xx<R>::type是一个类型。
+    如果不使用typename，编译器可能会将type_xx<R>::type解析为一个静态成员
+    */
+	// Serializer ds(StreamBuffer(data, len));
+	// P1 p1;
+	// ds >> p1;
+	// typename type_xx<R>::type r = call_helper<R>(std::bind(func, p1));
+
+	// value_t<R> val;
+	// val.set_code(RPC_ERR_SUCCESS);
+	// val.set_val(r);
+	// (*pr) << val;
+	value_t<R> val;
+	val.set_code(RPC_ERR_SUCCESS);
+	val.set_val("OK");
+	(*pr) << val;  //这个也是先调用value_t的友元函数，之前因为没写所以有bug
 }
 
 void buttonrpc::run()
@@ -168,13 +208,8 @@ void buttonrpc::run()
 
 		zmq::message_t retmsg (r->size()); //创建一个消息
 		memcpy (retmsg.data (), r->data(), r->size()); //拷贝数据，memcpy要指定拷贝多少字节
-
-
-		// zmq::message_t retmsg (10); //创建一个消息
-		// memcpy(retmsg.data(), "World", 5);
-
 		send(retmsg); //发送数据
-		// delete r;  //防止内存泄漏
+		delete r;  //防止内存泄漏
 	}
 }
 
@@ -190,7 +225,7 @@ Serializer* buttonrpc::call_(std::string name, const char* data, int len)
 	}
 
     auto fun = m_handlers[name]; //获取函数
-    fun(ds, data, len);  //调用函数
+    fun(ds, data, len);  //调用函数，通过统一的三个参数接口进行调用
     ds->reset(); //重置序列号容器
     return ds;
 }
