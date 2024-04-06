@@ -32,6 +32,7 @@ public:
     std::string set(const std::string& key, const RedisValue& value,const SET_MODEL model=NONE);
     std::string setnx(const std::string& key, const RedisValue& value);
     std::string setex(const std::string& key, const RedisValue& value);
+    std::string get(const std::string& key);
 
 
 };

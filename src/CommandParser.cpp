@@ -19,3 +19,10 @@ std::string SetParser::parse(std::vector<std::string>& tokens){
     }
     return redisHelper->set(tokens[1], tokens[2]);
 }
+
+std::string GetParser::parse(std::vector<std::string>& tokens){
+    if (tokens.size() < 2) {
+        return "wrong number of arguments for GET.";
+    }
+    return redisHelper->get(tokens[1]);
+}

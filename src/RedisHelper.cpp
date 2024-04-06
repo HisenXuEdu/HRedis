@@ -37,3 +37,9 @@ std::string RedisHelper::setnx(const std::string& key, const RedisValue& value){
 std::string RedisHelper::setex(const std::string& key, const RedisValue& value){
     return "OK";
 }
+
+std::string RedisHelper::get(const std::string& key){
+    auto currentNode=redisDataBase->searchItem(key);
+    if(currentNode==nullptr) return "key: "+ key +" does not exist!";
+    return currentNode->value.dump();
+}

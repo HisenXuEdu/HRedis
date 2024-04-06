@@ -19,3 +19,9 @@ class SetParser : public CommandParser {
 public:
     std::string parse(std::vector<std::string>& tokens) override;  //override让编译器检查是不是重载了父类虚函数
 };
+
+// GetParser 
+class GetParser : public CommandParser {
+public:
+    std::string parse(std::vector<std::string>& tokens) override;  //override让编译器检查是不是重载了父类虚函数
+};

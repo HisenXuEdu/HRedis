@@ -34,10 +34,10 @@ std::shared_ptr<CommandParser> ParserFlyweightFactory::createCommandParser(std::
         //     parserMaps[command]=std::make_shared<DBSizeParser>();
         //     break;
         // }
-        // case GET:{
-        //     parserMaps[command]=std::make_shared<GetParser>();
-        //     break;
-        // }
+        case GET:{
+            parserMaps[command]=std::make_shared<GetParser>();
+            break;
+        }
         // case KEYS:{
         //     parserMaps[command]=std::make_shared<KeysParser>();
         //     break;
