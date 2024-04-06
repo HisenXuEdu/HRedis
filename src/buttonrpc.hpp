@@ -53,7 +53,7 @@ public:
         void set_code(code_type code) { code_ = code; }    
         void set_msg(msg_type msg) { msg_ = msg; }
 
-		friend Serializer& operator >> (Serializer& in, value_t<T>& d) { //定义友元函数    //XXX：这两个友元函数好像并不会被调用啊，会被调用，这个bug找了很久！！！
+		friend Serializer& operator >> (Serializer& in, value_t<T>& d) { //定义友元函数    //done 这两个友元函数好像并不会被调用啊，会被调用，这个bug找了很久！！！
             in >> d.code_ >> d.msg_; 
 			if (d.code_ == 0) {
 				in >> d.val_;
@@ -106,7 +106,9 @@ private:
 	// PROXY CLASS MEMBER，function不能包装类成员变量或函数，需要配合Bind,传入函数地址和类对象地址
     template<typename R, typename C, typename S, typename P1>
 	void callproxy_(R(C::* func)(P1), S* s, Serializer* pr, const char* data, int len) {
+		//func 是类的成员函数，C是所属的类，R是返回类型，P1是参数类型
 		callproxy_(std::function<R(P1)>(std::bind(func, s, std::placeholders::_1)), pr, data, len);
+		//这里s作为func的第一参数传入，而类成员函数第一个参数是this指针，所以传入的应该是指向该对象的指针
 	}
 
 	// PORXY FUNCTIONAL
@@ -168,6 +170,25 @@ inline void buttonrpc::callproxy(F fun, S * s, Serializer * pr, const char * dat
 	callproxy_(fun, s, pr, data, len);
 }
 
+
+
+// #pragma region 区分返回值   //??? 这里不懂
+// // help call return value type is void function ,c++11的模板参数类型约束
+// template<typename R, typename F>
+// typename std::enable_if<std::is_same<R, void>::value, typename type_xx<R>::type >::type call_helper(F f) {
+// 	f();
+// 	return 0;
+// }
+// template<typename R, typename F>
+// typename std::enable_if<!std::is_same<R, void>::value, typename type_xx<R>::type >::type call_helper(F f) {
+// 	return f();
+// }
+// #pragma endregion
+
+
+
+
+
 template<typename R, typename P1>
 void buttonrpc::callproxy_(std::function<R(P1)> func, Serializer* pr, const char* data, int len)
 {
@@ -176,19 +197,16 @@ void buttonrpc::callproxy_(std::function<R(P1)> func, Serializer* pr, const char
     ype_xx<R>::type是一个依赖类型，因为它依赖于模板参数R。在这种情况下，你需要使用typename关键字来告诉编译器type_xx<R>::type是一个类型。
     如果不使用typename，编译器可能会将type_xx<R>::type解析为一个静态成员
     */
-	// Serializer ds(StreamBuffer(data, len));
-	// P1 p1;
-	// ds >> p1;
-	// typename type_xx<R>::type r = call_helper<R>(std::bind(func, p1));
+	Serializer ds(StreamBuffer(data, len));
+	P1 p1;
+	ds >> p1;
+	// typename type_xx<R>::type r = call_helper<R>(std::bind(func, p1));  //done 这里调用call_helper就可以，直接调用函数就会段错误 | 一样的，段错误是因为我set函数没写返回值，相当于string没有被赋初值。
+	typename type_xx<R>::type r=func(p1);
 
-	// value_t<R> val;
-	// val.set_code(RPC_ERR_SUCCESS);
-	// val.set_val(r);
-	// (*pr) << val;
 	value_t<R> val;
 	val.set_code(RPC_ERR_SUCCESS);
-	val.set_val("OK");
-	(*pr) << val;  //这个也是先调用value_t的友元函数，之前因为没写所以有bug
+	val.set_val(r);
+	(*pr) << val; //这个也是先调用value_t的友元函数，之前因为没写所以有bug
 }
 
 void buttonrpc::run()
@@ -259,7 +277,6 @@ inline buttonrpc::value_t<R> buttonrpc::net_call(Serializer& ds)
 	if (m_error_code != RPC_ERR_RECV_TIMEOUT) {
 		send(request);
 	}
-	// send(request);
 	zmq::message_t reply;
 	recv(reply);
 	value_t<R> val;

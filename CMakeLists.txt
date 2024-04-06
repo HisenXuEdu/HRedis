@@ -12,7 +12,11 @@ set(BIN_DIR ../bin)
 
 # 添加源文件
 set(SOURCE_FILES 
-    ${SRC_DIR}/buttonrpc.hpp
+    ${SRC_DIR}/RedisServer.cpp
+    ${SRC_DIR}/ParserFlyweightFactory.cpp
+    ${SRC_DIR}/CommandParser.cpp
+    ${SRC_DIR}/RedisHelper.cpp
+    ${SRC_DIR}/RedisValue/RedisValue.cpp
 )
 
 # 确保二进制文件目录存在

@@ -15,6 +15,7 @@ public:
         m_curpos = 0;
         insert(begin(), in, in+len);
     }
+    ~StreamBuffer(){};
 
     const char* current(){ 
         return&(*this)[m_curpos]; 
@@ -50,7 +51,7 @@ public:
     Serializer(){
         m_byteorder = LittleEndian;
     }
-    Serializer(StreamBuffer& dev, int byteorder = LittleEndian){
+    Serializer(StreamBuffer dev, int byteorder = LittleEndian){
         m_byteorder = byteorder;
         m_iodevice = dev;
     }
