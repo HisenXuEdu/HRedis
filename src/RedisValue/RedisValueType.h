@@ -24,7 +24,8 @@ protected:
     // RedisValue::Type type() const override{
     //     return tag;
     // }
-    void dump(std::string&out) const override{ ::dump(value,out);}
+    //??? 这里为什么一定要加::
+    void dump(std::string&out) const override{::dump(value,out);}
 };
 
 

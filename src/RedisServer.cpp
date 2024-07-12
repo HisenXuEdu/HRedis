@@ -69,7 +69,7 @@ void RedisServer::signalHandler(int sig){
     //刷盘
     if (sig == SIGINT) {
         //刷盘
-        
+        CommandParser::getRedisHelper()->flush();
         std::cout<<"quit!"<<std::endl;
         exit(0);
     }

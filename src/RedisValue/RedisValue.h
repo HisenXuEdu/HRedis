@@ -1,7 +1,7 @@
 #ifndef REDISVALUE_H 
 #define REDISVALUE_H
 #include<string>
-#include<memory>
+#include"memory"
 
 class RedisValueType;
 
@@ -23,7 +23,8 @@ public:
     // RedisValue(array&& values);
     // RedisValue(const object& values);
     // RedisValue(object && values);
-        
+    
+    static RedisValue parse(const std::string&in, std::string& err);
 
     // 序列化函数
     void dump(std::string &out) const;

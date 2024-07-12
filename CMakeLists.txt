@@ -17,6 +17,7 @@ set(SOURCE_FILES
     ${SRC_DIR}/CommandParser.cpp
     ${SRC_DIR}/RedisHelper.cpp
     ${SRC_DIR}/RedisValue/RedisValue.cpp
+    # ${SRC_DIR}/RedisValue/Parse.cpp
 )
 
 # 确保二进制文件目录存在

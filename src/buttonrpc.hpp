@@ -157,11 +157,12 @@ void buttonrpc::as_server( int port )
 }
 
 template<typename F, typename S>
-inline void buttonrpc::bind(std::string name, F func, S* s) //类函数，注册类函数成为远程调用的函数
+inline void buttonrpc::bind(std::string name, F func, S* s) //类函数，注册类函数成为远程调用的函数，s是类对象的指针
 {
 	m_handlers[name] = std::bind(&buttonrpc::callproxy<F, S>, this, func, s, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 	//它是一个函数适配器，接受一个可调用对象（callable object），生成一个新的可调用对象来“适应”原对象的参数列表。因为是成员函数，所以要传递this指针
 	//这个函数变成了传递三个参数的函数接口placeholders
+	//buttonrpc::callproxy<F, S>是实际调用的函数，这个函数内部又会调用func，也就是handleclient
 }
 
 template<typename F, typename S>
@@ -190,7 +191,8 @@ inline void buttonrpc::callproxy(F fun, S * s, Serializer * pr, const char * dat
 
 
 template<typename R, typename P1>
-void buttonrpc::callproxy_(std::function<R(P1)> func, Serializer* pr, const char* data, int len)
+void buttonrpc::callproxy_(std::function<R(P1)> func, Serializer* pr, const char* data, int len) //mark 这里是map中函数最终执行的地方，传入的Serializer对象也是在这里进行写入的，
+																								//handleclinet只会传回一个string，即消息的响应，放在value_t的val_中。
 {
 	/*
     typename关键字用于指定一个依赖类型,依赖类型是指在模板参数中定义的类型，其具体类型直到模板实例化时才能确定。
@@ -201,12 +203,12 @@ void buttonrpc::callproxy_(std::function<R(P1)> func, Serializer* pr, const char
 	P1 p1;
 	ds >> p1;
 	// typename type_xx<R>::type r = call_helper<R>(std::bind(func, p1));  //done 这里调用call_helper就可以，直接调用函数就会段错误 | 一样的，段错误是因为我set函数没写返回值，相当于string没有被赋初值。
-	typename type_xx<R>::type r=func(p1);
+	typename type_xx<R>::type r=func(p1);  //handleclinet调用
 
 	value_t<R> val;
 	val.set_code(RPC_ERR_SUCCESS);
 	val.set_val(r);
-	(*pr) << val; //这个也是先调用value_t的友元函数，之前因为没写所以有bug
+	(*pr) << val; //这个也是先调用value_t的友元函数，之前因为没写所以有bug，写入要返回的Serializer中
 }
 
 void buttonrpc::run()
@@ -243,8 +245,8 @@ Serializer* buttonrpc::call_(std::string name, const char* data, int len)
 	}
 
     auto fun = m_handlers[name]; //获取函数
-    fun(ds, data, len);  //调用函数，通过统一的三个参数接口进行调用
-    ds->reset(); //重置序列号容器
+    fun(ds, data, len);  //调用函数，通过统一的三个参数接口进行调用，实际绑定的是redisserver的handleClient，只接受一个函数。
+    ds->reset(); //重置序列号容器，只是把当前位置的指针放到最前面，就是相当于当前读到0位置
     return ds;
 }
 

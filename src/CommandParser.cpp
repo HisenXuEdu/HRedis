@@ -12,9 +12,9 @@ std::string SetParser::parse(std::vector<std::string>& tokens){
     }
     if(tokens.size() == 4){
         if (tokens.back() == "NX") {
-            // return redisHelper->set(tokens[1], tokens[2], NX);
+            return redisHelper->set(tokens[1], tokens[2], NX);
         } else if (tokens.back() == "XX") {
-            // return redisHelper->set(tokens[1], tokens[2], XX);
+            return redisHelper->set(tokens[1], tokens[2], XX);
         }
     }
     return redisHelper->set(tokens[1], tokens[2]);
