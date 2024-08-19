@@ -1,6 +1,7 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 #include "RedisValueType.h"
+#include "RedisValue.h"
 #include <vector>
 #include <map>
 
@@ -10,7 +11,7 @@ static const int max_depth = 200;
 // Statics结构体，用于存储JSON值的一些静态实例，如null、true、false等，以及空的字符串、向量和映射。
 // 这样做是为了避免重复创建这些常用对象，提高效率。
 struct Statics{
-    std::shared_ptr<RedisValueType> null = std::make_shared<RedisValueNull>();
+    // std::shared_ptr<RedisValueType> null = std::make_shared<RedisValueNull>();
 
     // 定义一个静态的空字符串
     std::string emptyString;
@@ -19,17 +20,18 @@ struct Statics{
     std::vector<RedisValue> emptyVector;
 
     // 定义一个静态的空Json对象映射
-    std::map<std::string,RedisValue> emptyMap;
+    RedisValue::object emptyObject;
 
+    //获取单例对象
+    static Statics& statics(){
+        static Statics s{};
+        return s;
+    }
+
+private:
     // 默认构造函数
     Statics(){}
 };
-
-// 返回一个静态的Statics实例的引用，保证整个程序中只有一个Statics实例。
-static Statics& statics(){
-    static Statics s{};
-    return s;
-}
 
 // 返回一个静态的null Json实例的引用，用于表示JSON中的null值。
 static RedisValue & staticNull(){

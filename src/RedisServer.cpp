@@ -85,7 +85,7 @@ std::string RedisServer::handleClient(std::string receivedData){
         std::istringstream iss(receivedData);
         std::string command;
         std::vector<std::string> tokens;
-        while(iss>>command){ //以字符串分割
+        while(iss>>command){ //字符串分割
             tokens.emplace_back(command);
         }
 
@@ -123,12 +123,11 @@ std::string RedisServer::handleClient(std::string receivedData){
                 }
             }
         }
-        else {
-            // 在非阻塞模式下，没有数据可读时继续循环
-            return "nil";
-        }
 
-        return "err";
     }
-
+    else {
+        // 在非阻塞模式下，没有数据可读时继续循环
+        return "nil";
+    }
+    return "err";
 }

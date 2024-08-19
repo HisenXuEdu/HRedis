@@ -2,10 +2,12 @@
 #define DUMP_H
 #include<string>
 #include<cmath>
+#include"RedisValue.h"
+
+//因为在一个类型中可能会调用别的类型的dump，所以不能设计成成员函数
 
 
-
-// 用于将字符串值进行转义处理并追加到输出字符串中
+// 用于将字符串值进行转义处理并追加到输出字符串中，static限定只在当前文件可见
 static void dump(const std::string &value, std::string &out) {
     out += '"';
     for (size_t i = 0; i < value.length(); i++) {
@@ -13,7 +15,7 @@ static void dump(const std::string &value, std::string &out) {
         // 根据字符进行相应的转义处理
         switch (ch) {
             case '\\': out += "\\\\"; break;
-            case '"': out += "\\\""; break;
+            case '"':  out += "\\\""; break;
             case '\b': out += "\\b"; break;
             case '\f': out += "\\f"; break;
             case '\n': out += "\\n"; break;
@@ -30,6 +32,19 @@ static void dump(const std::string &value, std::string &out) {
         }
     }
     out += '"';
+}
+
+static void dump(const RedisValue::object &value, std::string &out){
+    bool first=1;
+    out+="{";
+    for(const auto &item:value){
+        if(!first) out+=",";
+        dump(item.first, out);
+        out+=":";
+        item.second.dump(out);
+        first=false;
+    }
+    out+="}";
 }
 
 
